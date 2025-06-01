@@ -139,3 +139,4 @@ dmypy.json
 .vscode
 
 static/
+db.sqlite3.bak

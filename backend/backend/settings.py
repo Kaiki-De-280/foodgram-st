@@ -33,7 +33,7 @@ INTERNAL_IPS = [
 
 # CORS_ORIGIN_WHITELIST = ["http://localhost:3000"]
 
-AUTH_USER_MODEL = 'users.CustomUser'
+AUTH_USER_MODEL = 'recipes.UserWithAvatar'
 
 
 INSTALLED_APPS = [
@@ -50,10 +50,8 @@ INSTALLED_APPS = [
     # 'corsheaders',
 
     # Локальные приложения
-    'users.apps.UsersConfig',
-    'ingredients.apps.IngredientsConfig',
+    'api.apps.ApiConfig',
     'recipes.apps.RecipesConfig',
-    'favorites_cart.apps.FavoritesCartConfig',
 ]
 
 MIDDLEWARE = [
@@ -87,7 +85,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-if DEBUG is True:
+if DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -125,7 +123,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'ru-RU'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 
@@ -160,4 +158,15 @@ REST_FRAMEWORK = {
 
 DJOSER = {
     'LOGIN_FIELD': 'email',
+    'HIDE_USERS': False,
+    'SERIALIZERS': {
+        'user': 'api.serializers.UserSerializer',
+        'current_user': 'api.serializers.UserSerializer',
+        'user_create': 'djoser.serializers.UserCreateSerializer',
+        'set_password': 'djoser.serializers.SetPasswordSerializer',
+    },
+    'PERMISSIONS': {
+        'user': ['rest_framework.permissions.AllowAny'],
+        'user_list': ['rest_framework.permissions.AllowAny'],
+    },
 }

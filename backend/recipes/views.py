@@ -1,74 +1,30 @@
-from django_filters.rest_framework import DjangoFilterBackend
-from recipes.filters import RecipeFilter
+import base64
 
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.shortcuts import redirect
 
-from .models import Recipe
-from users.pagination import BasePagination
-from .serializers import (
-    RecipeListSerializer,
-    RecipeCreateUpdateSerializer,
-)
-from .permissions import IsAuthorOrReadOnly
+from backend.settings import DEBUG
 
 
-class RecipeViewSet(viewsets.ModelViewSet):
+@api_view(['GET'])
+def redirect_short_link(request, encoded_id):
     """
-    Работа с рецептами:
-    GET      /api/recipes/           => список рецептов
-    POST     /api/recipes/           => создать рецепт
-    GET      /api/recipes/{id}/      => получить детали рецепта
-    PATCH    /api/recipes/{id}/      => частично обновить
-    DELETE   /api/recipes/{id}/      => удалить рецепт
-
-    GET      /api/recipes/{id}/get-link/ => получить короткую ссылку на рецепт
+    GET /s/<encoded_id>/  → 302 Redirect на /api/recipes/<decoded_id>/
     """
-    queryset = Recipe.objects.all()
-    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = RecipeFilter
-    pagination_class = BasePagination
-
-    def get_serializer_class(self):
-        if self.action in ('list', 'retrieve', 'get_link'):
-            return RecipeListSerializer
-        return RecipeCreateUpdateSerializer
-
-    @action(detail=True, methods=['get'], url_path='get-link')
-    def get_link(self, request, pk=None):
-        """
-        Получение ссылки на рецепт.
-        """
-        recipe = self.get_object()
+    try:
+        padding = '=' * (4 - (len(encoded_id) % 4))
+        raw = base64.urlsafe_b64decode(encoded_id + padding).decode()
+        recipe_id = int(raw)
+    except (ValueError, TypeError):
         return Response(
-            {'short-link': request.build_absolute_uri(f'/recipes/{recipe.pk}')},
-            status=status.HTTP_200_OK
+            {'error': 'Неправильная короткая ссылка'},
+            status=status.HTTP_404_NOT_FOUND
         )
-
-    def create(self, request, *args, **kwargs):
-        create_serializer = self.get_serializer(data=request.data)
-        create_serializer.is_valid(raise_exception=True)
-        recipe = create_serializer.save()
-        read = RecipeListSerializer(
-            recipe, context={'request': request}
-        )
-        return Response(read.data, status=status.HTTP_201_CREATED)
-
-    def partial_update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = RecipeCreateUpdateSerializer(
-            instance,
-            data=request.data,
-            partial=False,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        recipe = serializer.save()
-        read = RecipeListSerializer(
-            recipe,
-            context={'request': request}
-        )
-        return Response(read.data, status=status.HTTP_200_OK)
+    if DEBUG:
+        # Будет кидать на API представление страницы рецепта
+        return redirect('recipe-detail', pk=recipe_id)
+    else:
+        # Будет кидать на фронтенд представление страницы рецепта
+        return redirect(f'/recipes/{recipe_id}/')

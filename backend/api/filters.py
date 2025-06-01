@@ -18,26 +18,26 @@ class RecipeFilter(filters.FilterSet):
         model = Recipe
         fields = ['author', 'is_favorited', 'is_in_shopping_cart']
 
-    def filter_is_favorited(self, queryset, name, value):
+    def filter_is_favorited(self, recipes, name, value):
         user = self.request.user
 
         if not user.is_authenticated:
-            return queryset.none() if value == 1 else queryset
+            return recipes.none() if value == 1 else recipes
 
         if value == 1:
-            return queryset.filter(favorited_by__user=user)
+            return recipes.filter(in_favorites__user=user)
         if value == 0:
-            return queryset.exclude(favorited_by__user=user)
-        return queryset
+            return recipes.exclude(in_favorites__user=user)
+        return recipes
 
-    def filter_in_shopping_cart(self, queryset, name, value):
+    def filter_in_shopping_cart(self, recipes, name, value):
         user = self.request.user
 
         if not user.is_authenticated:
-            return queryset.none() if value == 1 else queryset
+            return recipes.none() if value == 1 else recipes
 
         if value == 1:
-            return queryset.filter(in_carts__user=user)
+            return recipes.filter(in_shoppingcarts__user=user)
         if value == 0:
-            return queryset.exclude(in_carts__user=user)
-        return queryset
+            return recipes.exclude(in_shoppingcarts__user=user)
+        return recipes

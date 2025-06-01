@@ -1,12 +1,11 @@
-from django.urls import include, path
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 
-from .views import RecipeViewSet
-
-router = DefaultRouter()
-
-router.register(r'recipes', RecipeViewSet, basename='recipe')
+from .views import redirect_short_link
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path(
+        's/<str:encoded_id>/',
+        redirect_short_link,
+        name='short-link-redirect'
+    ),
 ]
