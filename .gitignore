@@ -140,3 +140,4 @@ dmypy.json
 
 static/
 db.sqlite3.bak
+media

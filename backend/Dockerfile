@@ -12,8 +12,12 @@ RUN pip install -r requirements.txt --no-cache-dir
 
 COPY . .
 
+RUN chmod +x entrypoint.sh
+
 EXPOSE 8000
 
 RUN python manage.py collectstatic --noinput
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && cp -r collected_static/. /backend_static/static/ && gunicorn --bind 0.0.0.0:8000 backend.wsgi"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi"]

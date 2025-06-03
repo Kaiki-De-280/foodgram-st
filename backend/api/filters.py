@@ -25,9 +25,9 @@ class RecipeFilter(filters.FilterSet):
             return recipes.none() if value == 1 else recipes
 
         if value == 1:
-            return recipes.filter(in_favorites__user=user)
+            return recipes.filter(favorites__user=user)
         if value == 0:
-            return recipes.exclude(in_favorites__user=user)
+            return recipes.exclude(favorites__user=user)
         return recipes
 
     def filter_in_shopping_cart(self, recipes, name, value):
@@ -37,7 +37,7 @@ class RecipeFilter(filters.FilterSet):
             return recipes.none() if value == 1 else recipes
 
         if value == 1:
-            return recipes.filter(in_shoppingcarts__user=user)
+            return recipes.filter(shoppingcarts__user=user)
         if value == 0:
-            return recipes.exclude(in_shoppingcarts__user=user)
+            return recipes.exclude(shoppingcarts__user=user)
         return recipes

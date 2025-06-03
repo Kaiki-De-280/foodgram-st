@@ -34,11 +34,13 @@ class HasRecipesFilter(admin.SimpleListFilter):
     title = ('Есть в рецептах')
     parameter_name = 'has_recipes'
 
+    LOOKUP_CHOICES = (
+        ('yes', 'Используется в рецептах'),
+        ('no', 'Не используется в рецептах'),
+    )
+
     def lookups(self, request, model_admin):
-        return (
-            ('yes', ('Используется в рецептах')),
-            ('no', ('Не используется в рецептах')),
-        )
+        return self.LOOKUP_CHOICES
 
     def queryset(self, request, queryset):
         queryset = queryset.annotate(
@@ -58,12 +60,9 @@ class IngredientAdmin(admin.ModelAdmin):
     list_filter = ('measurement_unit', HasRecipesFilter,)
     ordering = ('name',)
 
+    @admin.display(description='Кол-во добавлений рецепты')
     def recipes_count(self, ingredient):
-        count = RecipeIngredient.objects.filter(
-            ingredient=ingredient
-        ).count()
-        return count
-    recipes_count.short_description = 'Кол-во добавлений рецепты'
+        return ingredient.recipeingredients.count()
 
 
 # Рецепты
@@ -112,15 +111,13 @@ class RecipeAdmin(admin.ModelAdmin):
     @mark_safe
     def ingredients_list(self, recipe):
         """HTML список ингредиентов с единицами измерения"""
-        items = []
-        products = RecipeIngredient.objects.filter(recipe=recipe)
-        for item in products:
-            items.append(
-                f'<li>{item.ingredient.name} - {item.amount} {item.ingredient.measurement_unit}</li>'
-            )
-        return f'<ul>{"".join(items)}</ul>' if items else '—'
+        items = [
+            f'{recingr.ingredient.name} – {recingr.amount} {recingr.ingredient.measurement_unit}'
+            for recingr in recipe.recipeingredients.all()
+        ]
+        return '<br>'.join(items) if items else '-'
 
-    @admin.display(description='Превью изображения')
+    @admin.display(description='Изображение')
     @mark_safe
     def image_preview(self, recipe):
         """Превью изображения с ссылкой"""
@@ -130,7 +127,7 @@ class RecipeAdmin(admin.ModelAdmin):
 
     @admin.display(description='В избранном у ')
     def favorites_count(self, recipe):
-        return recipe.in_favorites.count()
+        return recipe.favorites.count()
 
 
 @admin.register(RecipeIngredient)
@@ -196,24 +193,24 @@ class UserWithAvatarAdmin(DjangoUserAdmin):
     )
     list_display_links = ('email',)
 
-    @admin.display(description='Превью аватара')
+    @admin.display(description='Аватар')
     @mark_safe
     def avatar_preview(self, user):
         if user.avatar:
             return f'<a href="{user.avatar.url}" target="_blank"><img src="{user.avatar.url}" style="max-height:100px;"></a>'
         return '—'
 
-    @admin.display(description='Количество рецептов')
+    @admin.display(description='Рецепты')
     def recipe_count(self, user):
-        return user.user_recipes.count()
+        return user.recipes.count()
 
-    @admin.display(description='Количество подписок')
+    @admin.display(description='Подписки')
     def subscriptions_count(self, user):
         return user.subscriptions.count()
 
-    @admin.display(description='Количество подписчиков')
+    @admin.display(description='Подписчики')
     def subscribers_count(self, user):
-        return user.subscribing.count()
+        return user.authors.count()
 
 
 # Подписки

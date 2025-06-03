@@ -8,41 +8,32 @@ from django.contrib.auth.validators import UnicodeUsernameValidator
 # Пользователь
 class UserWithAvatar(AbstractUser):
     """
-    Кастомная модель пользователя.
+    Кастомная модель пользователя с аватаром.
     """
     username = models.CharField(
         verbose_name='Юзернейм',
         unique=True,
         max_length=150,
-        blank=False,
-        null=False,
         validators=[UnicodeUsernameValidator()],
     )
     first_name = models.CharField(
         verbose_name='Имя',
         max_length=150,
-        blank=False,
-        null=False,
     )
     last_name = models.CharField(
         verbose_name='Фамилия',
         max_length=150,
-        blank=False,
-        null=False,
     )
     email = models.EmailField(
         verbose_name='Адрес электронной почты',
         unique=True,
         max_length=254,
-        blank=False,
-        null=False,
     )
     avatar = models.ImageField(
         verbose_name='Аватар',
         upload_to='avatars/',
         default='avatars/default.png',
         blank=True,
-        null=True,
     )
 
     USERNAME_FIELD = 'email'
@@ -72,7 +63,7 @@ class Subscription(models.Model):
     author = models.ForeignKey(
         UserWithAvatar,
         verbose_name='Автор рецептов',
-        related_name='subscribing',
+        related_name='authors',
         on_delete=models.CASCADE
     )
 
@@ -83,7 +74,11 @@ class Subscription(models.Model):
             models.UniqueConstraint(
                 fields=['user', 'author'],
                 name='unique_user_author'
-            )
+            ),
+            models.CheckConstraint(
+                check=~models.Q(user=models.F('author')),
+                name='user_cannot_follow_self'
+            ),
         ]
 
     def __str__(self):
@@ -91,7 +86,7 @@ class Subscription(models.Model):
 
 
 # Список избранного и покупок
-class BaseList(models.Model):
+class AbstractUserRecipeList(models.Model):
     """
     Абстрактный базовый класс для избранного и списка покупок.
     """
@@ -99,17 +94,16 @@ class BaseList(models.Model):
         UserWithAvatar,
         verbose_name='Пользователь',
         on_delete=models.CASCADE,
-        related_name='in_%(class)ss'
     )
     recipe = models.ForeignKey(
         'Recipe',
         verbose_name='Рецепт',
         on_delete=models.CASCADE,
-        related_name='in_%(class)ss',
     )
 
     class Meta:
         abstract = True
+        default_related_name = '%(class)ss'
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'recipe'],
@@ -118,29 +112,25 @@ class BaseList(models.Model):
         ]
 
     def __str__(self):
-        list = {
-            'favorite': 'избранном',
-            'shoppingcart': 'корзине',
-        }.get(self.__class__.__name__.lower(), 'списке')
-        return f'Рецепт {self.recipe.name} в {list} у {self.user.username}'
+        return f'Рецепт {self.recipe.name} в {self._meta.verbose_name_plural} у {self.user.username}'
 
 
-class Favorite(BaseList):
+class Favorite(AbstractUserRecipeList):
     """
     Модель списка избранного.
     """
 
-    class Meta:
-        verbose_name = 'избранный рецепт'
+    class Meta(AbstractUserRecipeList.Meta):
+        verbose_name = 'избранное'
         verbose_name_plural = 'Избранные рецепты'
 
 
-class ShoppingCart(BaseList):
+class ShoppingCart(AbstractUserRecipeList):
     """
     Модель списка покупок.
     """
 
-    class Meta:
+    class Meta(AbstractUserRecipeList.Meta):
         verbose_name = 'список покупок'
         verbose_name_plural = 'Списки покупок'
 
@@ -153,14 +143,10 @@ class Ingredient(models.Model):
     name = models.CharField(
         verbose_name='Название',
         max_length=128,
-        blank=False,
-        null=False,
     )
     measurement_unit = models.CharField(
         verbose_name='Единица измерения',
         max_length=64,
-        blank=False,
-        null=False,
     )
 
     class Meta:
@@ -191,12 +177,7 @@ class Recipe(models.Model):
     )
     cooking_time = models.IntegerField(
         verbose_name='Время приготовления в минутах',
-        validators=(
-            MinValueValidator(
-                1,
-                message='Время приготовления должно быть больше 0'
-            ),
-        )
+        validators=(MinValueValidator(1),)
     )
     image = models.ImageField(
         verbose_name='Картинка',
@@ -206,13 +187,11 @@ class Recipe(models.Model):
         UserWithAvatar,
         verbose_name='Автор рецепта',
         on_delete=models.CASCADE,
-        related_name='user_recipes',
     )
     ingredients = models.ManyToManyField(
         Ingredient,
         verbose_name='Ингредиенты',
         through='RecipeIngredient',
-        related_name='recipes'
     )
     pub_date = models.DateTimeField(
         verbose_name='Дата добавления',
@@ -220,6 +199,7 @@ class Recipe(models.Model):
     )
 
     class Meta:
+        default_related_name = 'recipes'
         verbose_name = 'рецепт'
         verbose_name_plural = 'Рецепты'
         ordering = ('-pub_date',)
@@ -237,7 +217,7 @@ class RecipeIngredient(models.Model):
         Recipe,
         verbose_name='Рецепт',
         on_delete=models.CASCADE,
-        related_name='products'
+        related_name='recipeingredients'
     )
     ingredient = models.ForeignKey(
         Ingredient,
@@ -247,17 +227,12 @@ class RecipeIngredient(models.Model):
     )
     amount = models.IntegerField(
         verbose_name='Количество',
-        validators=(
-            MinValueValidator(
-                1,
-                message='Количество должно быть больше 0'
-            ),
-        )
+        validators=(MinValueValidator(1),)
     )
 
     class Meta:
         verbose_name = 'продукт для рецепта'
-        verbose_name_plural = 'Продукты для рецепта'
+        verbose_name_plural = 'Продукты для рецептов'
         constraints = [
             models.UniqueConstraint(
                 fields=('recipe', 'ingredient'),
